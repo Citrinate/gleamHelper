@@ -1,8 +1,8 @@
 #Gleam.helper
 ##Purpose
-Provies a few useful additions to Gleam.io giveaways:
-  * Join/Leave buttons for Steam groups
-  * Shows win % in raffles
+Provides a few useful features to Gleam.io giveaways:
+  * Adds "Join" and "Leave" buttons next to each Steam group entry
+  * Shows win percentage in raffle giveaways
 
 ##Installation
 1. Install the [Tampermonkey extension](https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo?hl=en) (for Chrome) or the [Greasemonkey extension](https://addons.mozilla.org/en-US/firefox/addon/greasemonkey/) (for Firefox)
