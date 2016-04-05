@@ -156,6 +156,10 @@
 				}, 500);
 			},
 			
+			getQuantity: function() {
+				return gleam.incentives[0].quantity.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+			},
+			
 			// estimate the probability of winning a raffle
 			calcWinChance: function() {
 				var your_entries = gleam.contestantEntries(),
@@ -192,6 +196,7 @@
 				jQuery("#current-entries .status.ng-binding").append(win_chance_container);
 				jQuery("html").css("overflow-y", "scroll");				
 				setInterval(this.updateWinChance, 500);
+				this.showQuantity();
 			},
 			
 			// print an error
@@ -236,6 +241,10 @@
 						updateTopMargin();
 					});
 				}
+			},
+			
+			showQuantity: function() {
+				$(".incentive-description h3").append("(" + gleamHelper.getQuantity() + " reward(s) being given away)");
 			},
 			
 			updateWinChance: function() {
