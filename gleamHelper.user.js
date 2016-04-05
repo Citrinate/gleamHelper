@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamHelper
 // @description Provides some useful Gleam.io features
 // @author Citrinate
-// @version 1.0.0
+// @version 1.0.1
 // @match *://gleam.io/*
 // @match https://steamcommunity.com/app/329630
 // @updateURL https://raw.githubusercontent.com/Citrinate/gleamHelper/master/gleamHelper.user.js
@@ -49,7 +49,7 @@
 			});
 		}
 
-		// handles steam_join_group entries
+		// handles steam group buttons
 		var loadSteamHandler = (function() {
 			function init() {
 				// Need some way to communicate with steamcommunity.com that is preferrably transparent
@@ -136,7 +136,6 @@
 			active_notifications = {},
 		    button_class = "btn btn-embossed btn-info",
 		    button_style = { margin: "2px 0px 2px 16px" },
-			selectbox_style = { margin: "0px 0px 0px 16px" },
 		    container_style = { fontSize: "18px", left: "0px", position: "fixed", top: "0px", width: "100%", zIndex: "9999999999" },
 			notification_style = { background: "#000", boxShadow: "-10px 2px 10px #000", color: "#3498db", padding: "8px", width: "100%", },
 			error_style = { background: "#e74c3c", boxShadow: "-10px 2px 10px #e74c3c", color: "#fff", padding: "8px", width: "100%" },
@@ -155,28 +154,7 @@
 				jQuery("body").append(gleam_helper_container);
 				jQuery("#current-entries .status.ng-binding").append(win_chance_container);
 				jQuery("html").css("overflow-y", "scroll");				
-				setInterval(this.updateWinChance(), 500);
-			},
-
-			addButton: function(entry_item, label, click_action, after_action) {
-				// the entry may not be visible yet, wait until it is before adding the button
-				var temp_interval = setInterval(function() {
-					if(jQuery(entry_item).find(">a").first().is(":visible")) {
-						clearInterval(temp_interval);
-						jQuery(entry_item).append(
-							jQuery("<a>", { text: label, class: button_class, css: button_style}).click(function() {
-								jQuery(this).unbind("click");
-								click_action();
-							})
-						);
-						
-						// what to do after a button has been added
-						// useful when adding multiple buttons and you want them to be in a certain order
-						if(typeof after_action == "function") {
-							after_action();
-						}
-					}
-				}, Math.random() * 1000);
+				setInterval(this.updateWinChance, 500);
 			},
 			
 			// print an error
@@ -225,6 +203,26 @@
 			
 			updateWinChance: function() {
 				win_chance_container.text("(~" + gleamHelper.calcWinChance() + "% to win)");
+			},
+
+			addButton: function(entry_item, label, click_action, after_action) {
+				// the entry may not be visible yet, wait until it is before adding the button
+				var temp_interval = setInterval(function() {
+					if(jQuery(entry_item).find(">a").first().is(":visible")) {
+						clearInterval(temp_interval);
+						jQuery(entry_item).append(
+							jQuery("<a>", { text: label, class: button_class, css: button_style}).click(function() {
+								click_action();
+							})
+						);
+						
+						// what to do after a button has been added
+						// useful when adding multiple buttons and you want them to be in a certain order
+						if(typeof after_action == "function") {
+							after_action();
+						}
+					}
+				}, 500);
 			}
 		};
 	})();
