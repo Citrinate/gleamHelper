@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamHelper
 // @description Provides some useful Gleam.io features
 // @author Citrinate
-// @version 1.0.1
+// @version 1.0.2
 // @match *://gleam.io/*
 // @match https://steamcommunity.com/app/329630
 // @updateURL https://raw.githubusercontent.com/Citrinate/gleamHelper/master/gleamHelper.user.js
@@ -44,9 +44,9 @@
 				steam_handler = loadSteamHandler.getInstance();
 			}
 			
-			gleamHelperUI.addButton(entry_item, "Join", function() { steam_handler.sendMessage("join", entry_data); }, function() {
-				gleamHelperUI.addButton(entry_item, "Leave", function() { steam_handler.sendMessage("leave", entry_data); });
-			});
+			steam_handler.handleEntry(entry_item, entry_data);
+			//gleamHelperUI.addButton(entry_item, "Join Group", function() { steam_handler.sendMessage("join", entry_data); });
+			//gleamHelperUI.addButton(entry_item, "Leave Group", function() { steam_handler.sendMessage("leave", entry_data); });
 		}
 
 		// handles steam group buttons
@@ -58,7 +58,9 @@
 				// interface to joining and leaving Steam groups.
 				var command_hub = document.createElement('iframe'),
 					command_hub_loaded = false,
-					notification_id = 0;
+					notification_id = 0,
+					active_groups = null,
+					button_id = "steam_group_button_";
 				
 				command_hub.style.display = "none";
 				command_hub.src = command_hub_url;
@@ -68,29 +70,63 @@
 					if(event.source == command_hub.contentWindow) {
 						if(event.data.status == "ready") {
 							command_hub_loaded = true;
+							active_groups = event.data.groups;
 						} else if(event.data.status == "joined") {
-							gleamHelperUI.showNotification("steamHandlerNotify" + notification_id, "Joined Group: " + event.data.name, 3000);
+							groupJoined(event.data);
 						} else if(event.data.status == "left") {
-							gleamHelperUI.showNotification("steamHandlerNotify" + notification_id, "Left Group: " + event.data.name, 3000);
+							groupLeft(event.data);
 						} else if(event.data.status == "not_logged_in") {
 							gleamHelperUI.showError('You must be logged into <a href="https://steamcommunity.com" style="color: #fff" target="_blank">steamcommunity.com</a>');
+						} else if(event.data.status == "missing_group_data") {
+							gleamHelperUI.showError("Unable to determine what groups you're a member of");
 						}
 					}
 				});
+				
+				function createButton(entry_item, entry_data) {
+					var group_name = entry_data.entry_method.config3,
+						group_id = entry_data.entry_method.config4,
+						starting_label = active_groups.indexOf(group_name) == -1 ? "Join Group" : "Leave Group";
+					
+					gleamHelperUI.addButton(button_id + group_id, entry_item, starting_label, function() {
+						toggleGroupStatus(entry_data);
+						gleamHelperUI.showLoading(button_id + group_id);
+					});
+				}
+				
+				function groupJoined(data) {
+					active_groups.push(data.name);
+					gleamHelperUI.setLabel(button_id + data.id, "Leave Group");
+					gleamHelperUI.hideLoading(button_id + data.id);
+				}
+				
+				function groupLeft(data) {
+					active_groups.splice(active_groups.indexOf(data.name), 1);
+					gleamHelperUI.setLabel(button_id + data.id, "Join Group");
+					gleamHelperUI.hideLoading(button_id + data.id);
+				}
+				
+				function toggleGroupStatus(entry_data) {
+					var group_name = entry_data.entry_method.config3,
+						group_id = entry_data.entry_method.config4;
+					
+					if(active_groups.indexOf(group_name) == -1) {
+						command_hub.contentWindow.postMessage({action: "join", name: group_name, id: group_id}, "*");
+					} else {
+						command_hub.contentWindow.postMessage({action: "leave", name: group_name, id: group_id}, "*");
+					}
+				}
 
-				return {					
-					sendMessage: function(msg, entry_data) {
-						var group_name = entry_data.entry_method.config3,
-							group_id = entry_data.entry_method.config4;
-						
+				return {
+					handleEntry: function(entry_item, entry_data) {
 						if(command_hub_loaded) {
-							command_hub.contentWindow.postMessage({action: msg, name: group_name, id: group_id}, "*");
+							createButton(entry_item, entry_data);
 						} else {
 							// wait for the command hub to load
 							var temp_interval = setInterval(function() {
 								if(command_hub_loaded) {
 									clearInterval(temp_interval);
-									command_hub.contentWindow.postMessage({action: msg, name: group_name, id: group_id}, "*");
+									createButton(entry_item, entry_data);
 								}
 							}, 500);
 						}
@@ -134,8 +170,9 @@
 	var gleamHelperUI = (function() {
 		var active_errors = [],
 			active_notifications = {},
+			active_buttons = {},
 		    button_class = "btn btn-embossed btn-info",
-		    button_style = { margin: "2px 0px 2px 16px" },
+		    button_style = { bottom: "0px", height: "20px", margin: "auto", padding: "6px", position: "absolute", right: "64px", top: "0px" },
 		    container_style = { fontSize: "18px", left: "0px", position: "fixed", top: "0px", width: "100%", zIndex: "9999999999" },
 			notification_style = { background: "#000", boxShadow: "-10px 2px 10px #000", color: "#3498db", padding: "8px", width: "100%", },
 			error_style = { background: "#e74c3c", boxShadow: "-10px 2px 10px #e74c3c", color: "#fff", padding: "8px", width: "100%" },
@@ -147,7 +184,7 @@
 		function updateTopMargin() {
 			jQuery("html").css("margin-top", (gleam_helper_container.is(":visible") ? gleam_helper_container.outerHeight() : 0));
 		}
-			
+
 		return {
 			// print the UI
 			loadUI: function() {
@@ -205,48 +242,85 @@
 				win_chance_container.text("(~" + gleamHelper.calcWinChance() + "% to win)");
 			},
 
-			addButton: function(entry_item, label, click_action, after_action) {
-				// the entry may not be visible yet, wait until it is before adding the button
-				var temp_interval = setInterval(function() {
-					if(jQuery(entry_item).find(">a").first().is(":visible")) {
-						clearInterval(temp_interval);
-						jQuery(entry_item).append(
-							jQuery("<a>", { text: label, class: button_class, css: button_style}).click(function() {
-								click_action();
-							})
-						);
-						
-						// what to do after a button has been added
-						// useful when adding multiple buttons and you want them to be in a certain order
-						if(typeof after_action == "function") {
-							after_action();
-						}
-					}
-				}, 500);
+			addButton: function(button_id, entry_item, label, click_function) {
+				var target = jQuery(entry_item).find(">a").first(),
+					new_button = 
+						jQuery("<a>", { class: button_class, css: button_style}).append(
+							jQuery("<span>", { text: label })).append(
+							jQuery("<span>", { class: "fa ng-scope fa-refresh fa-spin", css: { display: "none" }})
+						).click(function(e) {
+							e.stopPropagation();
+							if(!active_buttons[button_id].find(".fa").is(":visible")) {
+								click_function();
+							}
+						});
+					
+				active_buttons[button_id] = new_button;
+				target.append(new_button);
+			},
+			
+			setLabel: function(button_id, label) {
+				active_buttons[button_id].find("span").first().text(label);
+			},
+			
+			showLoading: function(button_id) {
+				active_buttons[button_id].find("span").first().hide();
+				active_buttons[button_id].find(".fa").show();
+			},
+			
+			hideLoading: function(button_id) {
+				active_buttons[button_id].find("span").first().show();
+				active_buttons[button_id].find(".fa").hide();
 			}
 		};
 	})();
 
 	// does the actual steam group joining/leaving
 	function initSteamCommandHub() {
-		var logged_in = g_steamID !== false;
+		var active_groups = null,
+			logged_in = g_steamID !== false;
 		
-		parent.postMessage({status: "ready"}, "*");
-
-		// wait for our parent to tell us what to do
-		window.addEventListener("message", function(event) {
-			if(event.source == parent && event.origin == "https://gleam.io") {
-				if(!logged_in) {
-					parent.postMessage({status: "not_logged_in"}, "*");
-				} else {
-					if(event.data.action == "join") {
-						joinGroup(event.data.name, event.data.id);
-					} else if(event.data.action == "leave") {
-						leaveGroup(event.data.name, event.data.id);
+		if(logged_in) {
+			// make note of what groups we're already a member of
+			jQuery.ajax({
+				url: "https://steamcommunity.com/my/groups",
+				async: false,
+				complete: function(data) {
+					if(data.responseText.toLowerCase().indexOf("you belong to 0 groups") != -1) {
+						// user isn't a member of any steam groups
+						active_groups = [];
+					} else {
+						jQuery(data.responseText).find(".groupBlock a.linkTitle").each(function() {
+							var group_name = jQuery(this).attr("href").replace("https://steamcommunity.com/groups/", "");
+							if(active_groups === null) active_groups = [];
+							active_groups.push(group_name);
+						});
 					}
 				}
-			}
-		}, false);
+			});
+		}
+		
+		if(active_groups === null) {
+			parent.postMessage({status: "missing_group_data"}, "*");
+		} else {
+			parent.postMessage({status: "ready", groups: active_groups}, "*");
+
+			// wait for our parent to tell us what to do
+			window.addEventListener("message", function(event) {
+				if(event.source == parent && event.origin == "https://gleam.io") {
+					if(!logged_in) {
+						parent.postMessage({status: "not_logged_in"}, "*");
+					} else {
+						if(event.data.action == "join") {
+							joinGroup(event.data.name, event.data.id);
+						} else if(event.data.action == "leave") {
+							leaveGroup(event.data.name, event.data.id);
+						}
+					}
+				}
+			}, false);
+			
+		}
 
 		function joinGroup(group_name, group_id) {
 			jQuery.ajax({
