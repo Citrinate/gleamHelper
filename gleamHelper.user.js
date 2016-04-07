@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamHelper
 // @description Provides some useful Gleam.io features
 // @author Citrinate
-// @version 1.0.3
+// @version 1.0.4
 // @match *://gleam.io/*
 // @match https://steamcommunity.com/app/329630
 // @updateURL https://raw.githubusercontent.com/Citrinate/gleamHelper/master/gleamHelper.user.js
@@ -43,10 +43,8 @@
 			if(steam_handler === null) {
 				steam_handler = loadSteamHandler.getInstance();
 			}
-			
+
 			steam_handler.handleEntry(entry_item, entry_data);
-			//gleamHelperUI.addButton(entry_item, "Join Group", function() { steam_handler.sendMessage("join", entry_data); });
-			//gleamHelperUI.addButton(entry_item, "Leave Group", function() { steam_handler.sendMessage("leave", entry_data); });
 		}
 
 		// handles steam group buttons
@@ -61,7 +59,7 @@
 					notification_id = 0,
 					active_groups = null,
 					button_id = "steam_group_button_";
-				
+
 				command_hub.style.display = "none";
 				command_hub.src = command_hub_url;
 				document.body.appendChild(command_hub);
@@ -82,7 +80,7 @@
 						}
 					}
 				});
-				
+
 				function createButton(entry_item, entry_data) {
 					var group_name = entry_data.entry_method.config3,
 						group_id = entry_data.entry_method.config4,
@@ -93,19 +91,19 @@
 						gleamHelperUI.showLoading(button_id + group_id);
 					});
 				}
-				
+
 				function groupJoined(data) {
 					active_groups.push(data.name);
 					gleamHelperUI.setLabel(button_id + data.id, "Leave Group");
 					gleamHelperUI.hideLoading(button_id + data.id);
 				}
-				
+
 				function groupLeft(data) {
 					active_groups.splice(active_groups.indexOf(data.name), 1);
 					gleamHelperUI.setLabel(button_id + data.id, "Join Group");
 					gleamHelperUI.hideLoading(button_id + data.id);
 				}
-				
+
 				function toggleGroupStatus(entry_data) {
 					var group_name = entry_data.entry_method.config3,
 						group_id = entry_data.entry_method.config4;
@@ -151,15 +149,27 @@
 						clearInterval(temp_interval);
 						gleam = angular.element(jQuery(".popup-blocks-container")).scope();
 						gleamHelperUI.loadUI();
-						handleEntries();
+						
+						if(!gleam.showPromotionEnded()) {
+							handleEntries();
+						}
 					}
 				}, 500);
 			},
-			
+
 			getQuantity: function() {
-				return gleam.incentives[0].quantity.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+				return gleam.incentives[0].quantity;
 			},
 			
+			getRemainingQuantity: function() {
+				if(gleam.campaign.campaign_type == "Reward") {
+					var est_remaining = gleam.incentives[0].quantity - Math.floor(gleam.campaign.entry_count/gleam.incentives[0].actions_required);
+					return Math.max(0, est_remaining);
+				} else {
+					return false;
+				}
+			},
+
 			// estimate the probability of winning a raffle
 			calcWinChance: function() {
 				var your_entries = gleam.contestantEntries(),
@@ -180,6 +190,7 @@
 		    container_style = { fontSize: "18px", left: "0px", position: "fixed", top: "0px", width: "100%", zIndex: "9999999999" },
 			notification_style = { background: "#000", boxShadow: "-10px 2px 10px #000", color: "#3498db", padding: "8px", width: "100%", },
 			error_style = { background: "#e74c3c", boxShadow: "-10px 2px 10px #e74c3c", color: "#fff", padding: "8px", width: "100%" },
+			quantity_style = { fontStyle: "italic", margin: "12px 0px 0px 0px" },
 			win_chance_style = { display: "inline-block", fontSize: "14px", lineHeight: "14px", position: "relative", top: "-4px" },		
 			win_chance_container = jQuery("<span>", { css: win_chance_style }),
 			gleam_helper_container = jQuery("<div>", { css: container_style });
@@ -198,7 +209,7 @@
 				setInterval(this.updateWinChance, 500);
 				this.showQuantity();
 			},
-			
+
 			// print an error
 			showError: function(msg) {
 				// don't print the same error multiple times
@@ -208,7 +219,7 @@
 					updateTopMargin();
 				}
 			},
-			
+
 			// display or update a notification
 			showNotification: function(notification_id, msg, hide_delay) {				
 				if(!active_notifications[notification_id]) {
@@ -220,7 +231,7 @@
 				// update notification
 				active_notifications[notification_id].html("Gleam.helper Notification: " + msg);
 				updateTopMargin();
-				
+
 				// automatically hide notification after a delay
 				if(typeof hide_delay == "number") {
 					var self = this;
@@ -242,11 +253,15 @@
 					});
 				}
 			},
-			
+
 			showQuantity: function() {
-				$(".incentive-description h3").append("(" + gleamHelper.getQuantity() + " reward(s) being given away)");
+				var num_rewards = gleamHelper.getQuantity().toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","),
+					num_remaining = gleamHelper.getRemainingQuantity().toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","),
+					msg = "(" + num_rewards + " " + (num_rewards == 1 ? "reward" : "rewards") + " being given away" + (num_remaining === false ? "" : ";<br>~" + num_remaining + " remaining") + ")";
+
+				$(".incentive-description h3").append(jQuery("<div>", { html: msg, css: quantity_style }));
 			},
-			
+
 			updateWinChance: function() {
 				win_chance_container.text("(~" + gleamHelper.calcWinChance() + "% to win)");
 			},
@@ -267,16 +282,16 @@
 				active_buttons[button_id] = new_button;
 				target.append(new_button);
 			},
-			
+
 			setLabel: function(button_id, label) {
 				active_buttons[button_id].find("span").first().text(label);
 			},
-			
+
 			showLoading: function(button_id) {
 				active_buttons[button_id].find("span").first().hide();
 				active_buttons[button_id].find(".fa").show();
 			},
-			
+
 			hideLoading: function(button_id) {
 				active_buttons[button_id].find("span").first().show();
 				active_buttons[button_id].find(".fa").hide();
@@ -288,7 +303,7 @@
 	function initSteamCommandHub() {
 		var active_groups = null,
 			logged_in = g_steamID !== false;
-		
+
 		if(logged_in) {
 			// make note of what groups we're already a member of
 			jQuery.ajax({
@@ -308,7 +323,7 @@
 				}
 			});
 		}
-		
+
 		if(active_groups === null) {
 			parent.postMessage({status: "missing_group_data"}, "*");
 		} else {
