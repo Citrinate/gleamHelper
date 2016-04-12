@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamHelper
 // @description Enhances Gleam.io giveaways
 // @author Citrinate
-// @version 1.1.1
+// @version 1.1.2
 // @match http://gleam.io/*
 // @match https://gleam.io/*
 // @connect steamcommunity.com
@@ -297,8 +297,8 @@
 						url: "https://twitter.com/" + twitter_handle,
 						method: "GET",
 						onload: function(response) {
-							var twitter_id = $($(response.responseText).find("[data-screen-name='" + twitter_handle + "'][data-user-id]").get(0)).attr("data-user-id"),
-								is_following = $($(response.responseText).find("[data-screen-name='" + twitter_handle + "'][data-you-follow]").get(0)).attr("data-you-follow");
+							var twitter_id = $($(response.responseText.toLowerCase()).find("[data-screen-name='" + twitter_handle.toLowerCase() + "'][data-user-id]").get(0)).attr("data-user-id"),
+								is_following = $($(response.responseText.toLowerCase()).find("[data-screen-name='" + twitter_handle.toLowerCase() + "'][data-you-follow]").get(0)).attr("data-you-follow");
 
 							if(typeof twitter_id !== "undefined" && typeof is_following !== "undefined") {
 								callback(twitter_id, is_following !== "false");
@@ -345,7 +345,7 @@
 								now = +new Date();
 
 							// reverse the order so that we're looking at oldest to newest
-							$($(response.responseText).find("a[href*='" + user_handle + "/status/']").get().reverse()).each(function() {
+							$($(response.responseText.toLowerCase()).find("a[href*='" + user_handle.toLowerCase() + "/status/']").get().reverse()).each(function() {
 								var tweet_time = $(this).find("span").attr("data-time-ms"),
 									tweet_id = $(this).attr("href").match(/\/([0-9]+)/);
 
