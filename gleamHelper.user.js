@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamHelper
 // @description Enhances Gleam.io giveaways
 // @author Citrinate
-// @version 1.1.2
+// @version 1.1.3
 // @match http://gleam.io/*
 // @match https://gleam.io/*
 // @connect steamcommunity.com
@@ -22,7 +22,22 @@
 	 *
 	 */
 	var gleamHelper = (function() {
-		var gleam = null;
+		var gleam = null,
+			authentications = {};
+
+		/**
+		 * Check to see what accounts the user has linked to gleam
+		 */
+		function checkAuthentications() {
+			if(gleam.contestantState.contestant.authentications) {
+				var authentication_data = gleam.contestantState.contestant.authentications;
+
+				for(var i = 0; i < authentication_data.length; i++) {
+					var current_authentication = authentication_data[i];
+					authentications[current_authentication.provider] = current_authentication;
+				}
+			}
+		}
 
 		/**
 		 * Decide what to do for each of the entries
@@ -93,13 +108,16 @@
 				 * Add a join/leave toggle button to the entry
 				 */
 				function createButton(entry, entry_element) {
+					checkAuthentications();
+
 					if(steam_id === null || session_id === null || process_url === null) {
-						// We're not logged in, try to mark it anyway incase we're already a member of the group
-						markEntryCompleted(entry);
+						// We're not logged in
 						gleamHelperUI.showError('You must be logged into <a href="https://steamcommunity.com" style="color: #fff" target="_blank">steamcommunity.com</a>');
+					} else if(authentications.steam.uid != steam_id) {
+						// We're logged in as the wrong user
+						gleamSolverUI.showError('You must be logged into the Steam account linked to Gleam.io: <a href="https://steamcommunity.com/profiles/' + authentications.steam.uid + '/" style="color: #fff" target="_blank">https://steamcommunity.com/profiles/' + authentications.steam.uid + '/</a>');
 					} else if(active_groups === null) {
 						// Couldn't get user's group data
-						markEntryCompleted(entry);
 						gleamHelperUI.showError("Unable to determine what Steam groups you're a member of");
 					} else {
 						var group_name = entry.entry_method.config3.toLowerCase(),
@@ -204,6 +222,7 @@
 			function init() {
 				var auth_token = null,
 					user_handle = null,
+					user_id = null,
 					deleted_tweets = [], // used to make sure we dont try to delete the same (re)tweet more than once
 					button_base_id = "twitter_button_",
 					ready = false;
@@ -215,8 +234,10 @@
 					onload: function(response) {
 						auth_token = $($(response.responseText).find("input[id='authenticity_token']").get(0)).attr("value");
 						user_handle = $(response.responseText).find(".account-group.js-mini-current-user").attr("data-screen-name");
+						user_id = $(response.responseText).find(".account-group.js-mini-current-user").attr("data-user-id");
 						auth_token = typeof auth_token == "undefined" ? null : auth_token;
 						user_handle = typeof user_handle == "undefined" ? null : user_handle;
+						user_id = typeof user_id == "undefined" ? null : user_id;
 						ready = true;
 					}
 				});
@@ -243,8 +264,14 @@
 				 * Create the button
 				 */
 				function createButton(entry_element, entry, start_time, end_time) {
+					checkAuthentications();
+
 					if(auth_token === null || user_handle === null) {
+						// We're not logged in
 						gleamHelperUI.showError('You must be logged into <a href="https://twitter.com" style="color: #fff" target="_blank">twitter.com</a>');
+					} else if(authentications.twitter.uid != user_id) {
+						// We're logged in as the wrong user
+						gleamSolverUI.showError('You must be logged into the Twitter account linked to Gleam.io: <a href="https://twitter.com/profiles/' + authentications.twitter.reference + '/" style="color: #fff" target="_blank">https://twitter.com/' + authentications.twitter.reference + '</a>');
 					} else {
 						var button_id = button_base_id + entry.entry_method.id;
 
