@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamHelper
 // @description Enhances Gleam.io giveaways
 // @author Citrinate
-// @version 1.1.3
+// @version 1.1.4
 // @match http://gleam.io/*
 // @match https://gleam.io/*
 // @connect steamcommunity.com
@@ -110,7 +110,9 @@
 				function createButton(entry, entry_element) {
 					checkAuthentications();
 
-					if(steam_id === null || session_id === null || process_url === null) {
+					if(typeof authentications.steam == "undefined") {
+						// The user doesn't have a Steam account linked, do nothing
+					} else if(steam_id === null || session_id === null || process_url === null) {
 						// We're not logged in
 						gleamHelperUI.showError('You must be logged into <a href="https://steamcommunity.com" style="color: #fff" target="_blank">steamcommunity.com</a>');
 					} else if(authentications.steam.uid != steam_id) {
@@ -120,6 +122,7 @@
 						// Couldn't get user's group data
 						gleamHelperUI.showError("Unable to determine what Steam groups you're a member of");
 					} else {
+						// Create the button
 						var group_name = entry.entry_method.config3.toLowerCase(),
 							group_id = entry.entry_method.config4,
 							starting_label = active_groups.indexOf(group_name) == -1 ? "Join Group" : "Leave Group",
@@ -200,7 +203,7 @@
 									clearInterval(temp_interval);
 									createButton(entry, entry_element);
 								}
-							}, 500);
+							}, 100);
 						}
 					}
 				};
@@ -248,15 +251,15 @@
 				function prepCreateButton(entry, entry_element) {
 					/* Wait until the entry is completed before showing the button,
 					and only show a button for entries that start out as uncompleted */
-					if(gleam.canEnter(entry.entry_method) || entry.requiresMandatoryActions()) {
+					if(!gleam.isEntered(entry.entry_method)) {
 						var start_time = +new Date();
 
 						var temp_interval = setInterval(function() {
-							if(!(gleam.canEnter(entry.entry_method) || entry.requiresMandatoryActions())) {
+							if(gleam.isEntered(entry.entry_method)) {
 								clearInterval(temp_interval);
 								createButton(entry_element, entry, start_time, +new Date());
 							}
-						}, 500);
+						}, 100);
 					}
 				}
 
@@ -266,13 +269,16 @@
 				function createButton(entry_element, entry, start_time, end_time) {
 					checkAuthentications();
 
-					if(auth_token === null || user_handle === null) {
+					if(typeof authentications.twitter == "undefined") {
+						// The user doesn't have a Twitter account linked, do nothing
+					} else if(auth_token === null || user_handle === null) {
 						// We're not logged in
 						gleamHelperUI.showError('You must be logged into <a href="https://twitter.com" style="color: #fff" target="_blank">twitter.com</a>');
 					} else if(authentications.twitter.uid != user_id) {
 						// We're logged in as the wrong user
 						gleamSolverUI.showError('You must be logged into the Twitter account linked to Gleam.io: <a href="https://twitter.com/profiles/' + authentications.twitter.reference + '/" style="color: #fff" target="_blank">https://twitter.com/' + authentications.twitter.reference + '</a>');
 					} else {
+						// Create the button
 						var button_id = button_base_id + entry.entry_method.id;
 
 						if(entry.entry_method.entry_type == "twitter_follow") {
@@ -429,7 +435,7 @@
 									clearInterval(temp_interval);
 									prepCreateButton(entry, entry_element);
 								}
-							}, 500);
+							}, 100);
 						}
 					}
 				};
@@ -465,9 +471,9 @@
 									handleEntries();
 								}
 							}
-						}, 500);
+						}, 100);
 					}
-				}, 500);
+				}, 100);
 			},
 
 			/**
@@ -481,7 +487,7 @@
 			 * @return {Boolean|Number} remaining - Estimated # of remaining rewards, false if not an instant-win giveaway
 			 */
 			getRemainingQuantity: function(callback) {
-				if(gleam.campaign.campaign_type == "Reward") {
+				if(gleam.campaign.campaign_type == "Reward" && gleam.campaign.entry_count !== 0) {
 					/* Gleam doesn't report how many rewards have been distributed.  They only report how many entries have been
 					completed, and how many entries are required for a reward.  Some users may only complete a few entries, not enough
 					for them to get a reward, and so this is only an estimate, but we can say there's at least this many left. */
@@ -516,8 +522,8 @@
 			GM_addStyle(
 				".gh__main_container { font-size: 16.5px; left: 0px; position: fixed; top: 0px; width: 100%; z-index: 9999999999; }" +
 				".gh__button { bottom: 0px; height: 20px; margin: auto; padding: 6px; position: absolute; right: 64px; top: 0px; z-index: 9999999999; }" +
-				".gh__notification { background: #000; border-top: 1px solid rgba(52, 152, 219, .5); box-shadow: 0px 2px 10px rgba(0, 0, 0, .5); box-sizing: border-box; color: #3498db; padding: 12px; width: 100%; }" +
-				".gh__error { background: #e74c3c; border-top: 1px solid rgba(255, 255, 255, .5); box-shadow: 0px 2px 10px rgba(231, 76, 60, .5); box-sizing: border-box; color: #fff; padding: 12px; width: 100%; }" +
+				".gh__notification { background: #000; border-top: 1px solid rgba(52, 152, 219, .5); box-shadow: 0px 2px 10px rgba(0, 0, 0, .5); box-sizing: border-box; color: #3498db; line-height: 22px; padding: 12px; width: 100%; }" +
+				".gh__error { background: #e74c3c; border-top: 1px solid rgba(255, 255, 255, .5); box-shadow: 0px 2px 10px rgba(231, 76, 60, .5); box-sizing: border-box; color: #fff; line-height: 22px; padding: 12px; width: 100%; }" +
 				".gh__quantity { font-style: italic; margin: 12px 0px 0px 0px; }" +
 				".gh__win_chance { display: inline-block; font-size: 14px; line-height: 14px; position: relative; top: -4px; }"
 			);
@@ -536,7 +542,7 @@
 			var num_rewards = gleamHelper.getQuantity(),
 				num_remaining = gleamHelper.getRemainingQuantity(),
 				msg = "(" + num_rewards.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + " " + (num_rewards == 1 ? "reward" : "rewards") + " being given away" +
-					(num_remaining === false ? "" : ";<br>~" + num_remaining.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + " remaining") + ")";
+					(num_remaining === false ? "" : ";<br>~" + num_remaining.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + " rewards remaining") + ")";
 
 			$(".incentive-description h3").append($("<div>", { html: msg, class: "gh__quantity" }));
 		}
@@ -567,7 +573,7 @@
 				// Don't print the same error multiple times
 				if(active_errors.indexOf(msg) == -1) {
 					active_errors.push(msg);
-					gleam_helper_container.append($("<div>", { class: "gh__error" }).html("Gleam.helper Error: " + msg));
+					gleam_helper_container.append($("<div>", { class: "gh__error" }).html("<strong>Gleam.helper Error</strong>: " + msg));
 					updateTopMargin();
 				}
 			},
@@ -583,7 +589,7 @@
 				}
 
 				// Update notification
-				active_notifications[notification_id].html("Gleam.helper Notification: " + msg);
+				active_notifications[notification_id].html("<strong>Gleam.helper Notification</strong>: " + msg);
 				updateTopMargin();
 
 				// Automatically hide notification after a delay
