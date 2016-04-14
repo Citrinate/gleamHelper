@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamHelper
 // @description Enhances Gleam.io giveaways
 // @author Citrinate
-// @version 1.1.4
+// @version 1.1.5
 // @match http://gleam.io/*
 // @match https://gleam.io/*
 // @connect steamcommunity.com
@@ -110,14 +110,14 @@
 				function createButton(entry, entry_element) {
 					checkAuthentications();
 
-					if(typeof authentications.steam == "undefined") {
+					if(!authentications.steam) {
 						// The user doesn't have a Steam account linked, do nothing
 					} else if(steam_id === null || session_id === null || process_url === null) {
 						// We're not logged in
 						gleamHelperUI.showError('You must be logged into <a href="https://steamcommunity.com" style="color: #fff" target="_blank">steamcommunity.com</a>');
 					} else if(authentications.steam.uid != steam_id) {
 						// We're logged in as the wrong user
-						gleamSolverUI.showError('You must be logged into the Steam account linked to Gleam.io: <a href="https://steamcommunity.com/profiles/' + authentications.steam.uid + '/" style="color: #fff" target="_blank">https://steamcommunity.com/profiles/' + authentications.steam.uid + '/</a>');
+						gleamHelperUI.showError('You must be logged into the Steam account linked to Gleam.io: <a href="https://steamcommunity.com/profiles/' + authentications.steam.uid + '/" style="color: #fff" target="_blank">https://steamcommunity.com/profiles/' + authentications.steam.uid + '/</a>');
 					} else if(active_groups === null) {
 						// Couldn't get user's group data
 						gleamHelperUI.showError("Unable to determine what Steam groups you're a member of");
@@ -269,14 +269,14 @@
 				function createButton(entry_element, entry, start_time, end_time) {
 					checkAuthentications();
 
-					if(typeof authentications.twitter == "undefined") {
+					if(!authentications.twitter) {
 						// The user doesn't have a Twitter account linked, do nothing
 					} else if(auth_token === null || user_handle === null) {
 						// We're not logged in
 						gleamHelperUI.showError('You must be logged into <a href="https://twitter.com" style="color: #fff" target="_blank">twitter.com</a>');
 					} else if(authentications.twitter.uid != user_id) {
 						// We're logged in as the wrong user
-						gleamSolverUI.showError('You must be logged into the Twitter account linked to Gleam.io: <a href="https://twitter.com/profiles/' + authentications.twitter.reference + '/" style="color: #fff" target="_blank">https://twitter.com/' + authentications.twitter.reference + '</a>');
+						gleamHelperUI.showError('You must be logged into the Twitter account linked to Gleam.io: <a href="https://twitter.com/profiles/' + authentications.twitter.reference + '/" style="color: #fff" target="_blank">https://twitter.com/' + authentications.twitter.reference + '</a>');
 					} else {
 						// Create the button
 						var button_id = button_base_id + entry.entry_method.id;
@@ -477,10 +477,10 @@
 			},
 
 			/**
-			 * @return {Number} quantity - # of rewards being given away
+			 * @return {Number|Boolean} quantity - # of rewards being given away, false if not defined
 			 */
 			getQuantity: function() {
-				return gleam.incentives[0].quantity;
+				return !!gleam.incentives[0].quantity ? gleam.incentives[0].quantity : false;
 			},
 
 			/**
@@ -500,14 +500,20 @@
 			},
 
 			/**
-			 * @return {Number} chance - Estimated probability of winning a raffle rounded to 2 decimal places
+			 * @return {Number|Boolean} chance - Estimated probability of winning a raffle rounded to 2 decimal places, false if impossible to tell
 			 */
 			calcWinChance: function() {
-				var your_entries = gleam.contestantEntries(),
-					total_entries = gleam.campaign.entry_count,
-					num_rewards = gleam.incentives[0].quantity;
+				if(!!gleam.incentives[0].quantity) {
+					var your_entries = gleam.contestantEntries(),
+						total_entries = gleam.campaign.entry_count,
+						num_rewards = gleam.incentives[0].quantity;
 
-				return Math.round(10000 * (1 - Math.pow((total_entries - your_entries) / total_entries, num_rewards))) / 100;
+					if(gleam.campaign.entry_count !== 0) {
+						return Math.round(10000 * (1 - Math.pow((total_entries - your_entries) / total_entries, num_rewards))) / 100;
+					}
+				}
+
+				return false;
 			}
 		};
 	})();
@@ -520,6 +526,7 @@
 			gleam_helper_container = $("<div>", { class: "gh__main_container" });
 
 			GM_addStyle(
+				"html { overflow-y: scroll !important; }" +
 				".gh__main_container { font-size: 16.5px; left: 0px; position: fixed; top: 0px; width: 100%; z-index: 9999999999; }" +
 				".gh__button { bottom: 0px; height: 20px; margin: auto; padding: 6px; position: absolute; right: 64px; top: 0px; z-index: 9999999999; }" +
 				".gh__notification { background: #000; border-top: 1px solid rgba(52, 152, 219, .5); box-shadow: 0px 2px 10px rgba(0, 0, 0, .5); box-sizing: border-box; color: #3498db; line-height: 22px; padding: 12px; width: 100%; }" +
@@ -539,19 +546,26 @@
 		 * Print details about how many rewards are up for grabs
 		 */
 		function showQuantity() {
-			var num_rewards = gleamHelper.getQuantity(),
-				num_remaining = gleamHelper.getRemainingQuantity(),
-				msg = "(" + num_rewards.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + " " + (num_rewards == 1 ? "reward" : "rewards") + " being given away" +
-					(num_remaining === false ? "" : ";<br>~" + num_remaining.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + " rewards remaining") + ")";
+			var num_rewards = gleamHelper.getQuantity();
 
-			$(".incentive-description h3").append($("<div>", { html: msg, class: "gh__quantity" }));
+			if(!!num_rewards) {
+				var	num_remaining = gleamHelper.getRemainingQuantity(),
+					msg = "(" + num_rewards.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + " " + (num_rewards == 1 ? "reward" : "rewards") + " being given away" +
+						(num_remaining === false ? "" : ";<br>~" + num_remaining.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + " rewards remaining") + ")";
+
+				$($(".incentive-description h3").get(0)).append($("<div>", { html: msg, class: "gs__quantity" }));
+			}
 		}
 
 		/**
 		 * Print details about how likely you are to get an reward
 		 */
 		function updateWinChance() {
-			win_chance_container.text("(~" + gleamHelper.calcWinChance() + "% to win)");
+			var win_chance = gleamHelper.calcWinChance();
+
+			if(win_chance !== false) {
+				win_chance_container.text("(~" + gleamHelper.calcWinChance() + "% to win)");
+			}
 		}
 
 		return {
@@ -561,7 +575,6 @@
 			loadUI: function() {
 				$("body").append(gleam_helper_container);
 				$("#current-entries .status.ng-binding").append(win_chance_container);
-				$("html").css("overflow-y", "scroll");
 				setInterval(updateWinChance, 500);
 				showQuantity();
 			},
