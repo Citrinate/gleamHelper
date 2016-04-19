@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamHelper
 // @description Enhances Gleam.io giveaways
 // @author Citrinate
-// @version 1.1.5
+// @version 1.1.6
 // @match http://gleam.io/*
 // @match https://gleam.io/*
 // @connect steamcommunity.com
@@ -577,6 +577,9 @@
 				$("#current-entries .status.ng-binding").append(win_chance_container);
 				setInterval(updateWinChance, 500);
 				showQuantity();
+
+				// Show exact end date when hovering over any times
+				$("[data-ends]").each(function() { $(this).attr("title", new Date(parseInt($(this).attr("data-ends")) * 1000)); });
 			},
 
 			/**
