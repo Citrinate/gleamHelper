@@ -3,7 +3,6 @@
 // @namespace https://github.com/Citrinate/gleamHelper
 // @description Enhances Gleam.io giveaways
 // @author Citrinate
-// @version 1.1.7
 // @match http://gleam.io/*
 // @match https://gleam.io/*
 // @connect steamcommunity.com
@@ -140,11 +139,19 @@
 				 * Toggle group status between "joined" and "left"
 				 */
 				function toggleGroupStatus(button_id, group_name, group_id) {
+					var steam_community_down_error = "The Steam Community is experiencing issues. " +
+						"Please handle any remaining Steam entries manually.<br>" +
+						"If you're having trouble getting groups to appear on " +
+						'<a href="https://steamcommunity.com/my/groups/">your groups list</a>, ' +
+						'joining a <a href="https://steamcommunity.com/search/#filter=groups">new group</a> may force the list to update.';
+
 					if(active_groups.indexOf(group_name) == -1) {
 						joinSteamGroup(group_name, group_id, function(success) {
 							if(success) {
 								active_groups.push(group_name);
 								gleamHelperUI.setButtonLabel(button_id, "Leave Group");
+							} else {
+								gleamHelperUI.showError(steam_community_down_error);
 							}
 
 							gleamHelperUI.hideButtonLoading(button_id);
@@ -154,6 +161,8 @@
 							if(success) {
 								active_groups.splice(active_groups.indexOf(group_name), 1);
 								gleamHelperUI.setButtonLabel(button_id, "Join Group");
+							} else {
+								gleamHelperUI.showError(steam_community_down_error);
 							}
 
 							gleamHelperUI.hideButtonLoading(button_id);
@@ -175,20 +184,13 @@
 								url: "https://steamcommunity.com/my/groups",
 								method: "GET",
 								onload: function(response) {
-									var success = true;
-
-									if($(response.responseText.toLowerCase()).find("a[href='https://steamcommunity.com/groups/" + group_name + "']").length === 0) {
-										// Failed to join the group, Steam Community is probably down
-										success = false;
-										gleamHelperUI.showError("The Steam Community may be down. " +
-											"Please handle any remaining Steam entries manually.<br>" +
-											"If you're having trouble getting groups to appear on " +
-											'<a href="https://steamcommunity.com/my/groups/">your groups list</a>, ' +
-											'joining a <a href="https://steamcommunity.com/search/#filter=groups">new group</a> may force the list to update.');
-									}
-
 									if(typeof callback == "function") {
-										callback(success);
+										if($(response.responseText.toLowerCase()).find("a[href='https://steamcommunity.com/groups/" + group_name + "']").length === 0) {
+											// Failed to join the group, Steam Community is probably down
+											callback(false);
+										} else {
+											callback(true);
+										}
 									}
 								}
 							});
@@ -206,20 +208,13 @@
 						headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
 						data: $.param({ sessionID: session_id, action: "leaveGroup", groupId: group_id }),
 						onload: function(response) {
-							var success = true;
-
-							if($(response.responseText.toLowerCase()).find("a[href='https://steamcommunity.com/groups/" + group_name + "']").length !== 0) {
-								// Failed to leave the group, Steam Community is probably down
-								success = false;
-								gleamHelperUI.showError("The Steam Community may be down. " +
-									"Please handle any remaining Steam entries manually.<br>" +
-									"If you're having trouble getting groups to appear on " +
-									'<a href="https://steamcommunity.com/my/groups/">your groups list</a>, ' +
-									'joining a <a href="https://steamcommunity.com/search/#filter=groups">new group</a> may force the list to update.');
-							}
-
 							if(typeof callback == "function") {
-								callback(success);
+								if($(response.responseText.toLowerCase()).find("a[href='https://steamcommunity.com/groups/" + group_name + "']").length !== 0) {
+									// Failed to leave the group, Steam Community is probably down
+									callback(false);
+								} else {
+									callback(true);
+								}
 							}
 						}
 					});
@@ -569,7 +564,10 @@
 				".gh__error { background: #e74c3c; border-top: 1px solid rgba(255, 255, 255, .5); box-shadow: 0px 2px 10px rgba(231, 76, 60, .5); box-sizing: border-box; color: #fff; line-height: 22px; padding: 12px; width: 100%; }" +
 				".gh__error a { color: #fff; }" +
 				".gh__quantity { font-style: italic; margin: 12px 0px 0px 0px; }" +
-				".gh__win_chance { display: inline-block; font-size: 14px; line-height: 14px; position: relative; top: -4px; }"
+				".gh__win_chance { display: inline-block; font-size: 14px; line-height: 14px; position: relative; top: -4px; }" +
+				".gh__close { float: right; background: rgba(255, 255, 255, .15); border: 1px solid #fff; box-shadow: 0px 0px 8px rgba(255, 255, 255, .5); cursor: pointer; margin-left: 4px; padding: 0px 4px; }" +
+				".gh__close:hover { background: #fff; color: #e74c3c; }" +
+				".gh__close::before { content: 'x'; position: relative; top: -1px; }"
 			);
 
 		/**
@@ -625,8 +623,20 @@
 			showError: function(msg) {
 				// Don't print the same error multiple times
 				if(active_errors.indexOf(msg) == -1) {
+					var self = this;
+
 					active_errors.push(msg);
-					gleam_helper_container.append($("<div>", { class: "gh__error" }).html("<strong>Gleam.helper Error</strong>: " + msg));
+					gleam_helper_container.append(
+						$("<div>", { class: "gh__error" }).html("<strong>Gleam.helper Error</strong>: " + msg).prepend(
+							$("<div>", { class: "gh__close" }).click(function() {
+								$(this).unbind("click");
+								$(this).parent().slideUp(400, function() {
+									active_errors.splice(active_errors.indexOf(msg), 1);
+									$(this).remove();
+									updateTopMargin();
+								});
+							})
+						));
 					updateTopMargin();
 				}
 			},
