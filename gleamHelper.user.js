@@ -3,6 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamHelper
 // @description Enhances Gleam.io giveaways
 // @author Citrinate
+// @version 1.1.8
 // @match http://gleam.io/*
 // @match https://gleam.io/*
 // @connect steamcommunity.com
