@@ -3,11 +3,14 @@
 // @namespace https://github.com/Citrinate/gleamHelper
 // @description Enhances Gleam.io giveaways
 // @author Citrinate
-// @version 1.1.8
-// @match http://gleam.io/*
+// @version 1.2.0
 // @match https://gleam.io/*
+// @match https://player.twitch.tv/
 // @connect steamcommunity.com
 // @connect twitter.com
+// @connect twitch.tv
+// @grant GM_getValue
+// @grant GM_setValue
 // @grant GM_addStyle
 // @grant GM_xmlhttpRequest
 // @grant unsafeWindow
@@ -52,6 +55,10 @@
 				switch(entry.entry_method.entry_type) {
 					case "steam_join_group":
 						loadSteamHandler.getInstance().handleEntry(entry, entry_element);
+						break;
+
+					case "twitchtv_follow":
+						loadTwitchHandler.getInstance().handleEntry(entry, entry_element);
 						break;
 
 					case "twitter_follow":
@@ -388,7 +395,6 @@
 							data: $.param({ authenticity_token: auth_token, user_id: twitter_id }),
 							onload: function(response) {
 								if(response.status != 200) {
-									console.log(twitter_handle, twitter_id, response);
 									gleamHelperUI.showError('Failed to unfollow Twitter user: <a href="https://twitter.com/' + twitter_handle + '" target="_blank">' + twitter_handle + '</a>');
 								}
 							}
@@ -446,8 +452,125 @@
 						data: $.param({ _method: "DELETE", authenticity_token: auth_token, id: tweet_id }),
 						onload: function(response) {
 							if(response.status != 200) {
-								console.log(retweet, tweet_id, response);
 								gleamHelperUI.showError('Failed to delete <a href="https://twitter.com/' + user_handle + '" target="_blank">' + (retweet ? "Retweet" : "Tweet") + '</a>');
+							}
+						}
+					});
+				}
+
+				return {
+					/**
+					 *
+					 */
+					handleEntry: function(entry, entry_element) {
+						if(ready) {
+							prepCreateButton(entry, entry_element);
+						} else {
+							// Wait for the command hub to load
+							var temp_interval = setInterval(function() {
+								if(ready) {
+									clearInterval(temp_interval);
+									prepCreateButton(entry, entry_element);
+								}
+							}, 100);
+						}
+					}
+				};
+			}
+
+			var instance;
+			return {
+				getInstance: function() {
+					if(!instance) instance = init();
+					return instance;
+				}
+			};
+		})();
+
+		/**
+		 * Handles all Twitch entries that may need to interact with Twitch
+		 */
+		var loadTwitchHandler = (function() {
+			function init() {
+				var command_hub_url = "https://player.twitch.tv/",
+					user_handle = null,
+					api_token = null,
+					button_base_id = "twitchtv_button_",
+					ready = false;
+
+				// Get all the user data we'll need to undo twitch entries
+				loadCommandHub(command_hub_url, function() {
+					return {
+						user_handle: getCookie("login"),
+						api_token: getCookie("api_token")
+					};
+				}, function(data) {
+					user_handle = data.user_handle;
+					api_token = data.api_token;
+					ready = true;
+				});
+
+				/**
+				 * Get ready to create an item
+				 */
+				function prepCreateButton(entry, entry_element) {
+					/* Wait until the entry is completed before showing the button,
+					and only show a button for entries that start out as uncompleted */
+					if(!gleam.isEntered(entry.entry_method)) {
+						var start_time = +new Date();
+
+						var temp_interval = setInterval(function() {
+							if(gleam.isEntered(entry.entry_method)) {
+								clearInterval(temp_interval);
+								createButton(entry_element, entry, start_time, +new Date());
+							}
+						}, 100);
+					}
+				}
+
+				/**
+				 * Create the button
+				 */
+				function createButton(entry_element, entry, start_time, end_time) {
+					checkAuthentications();
+
+					if(!authentications.twitchtv) {
+						// The user doesn't have a Twitter account linked, do nothing
+					} else if(user_handle === null || api_token === null) {
+						// We're not logged in
+						gleamHelperUI.showError('You must be logged into <a href="https://twitch.tv" target="_blank">twitch.tv</a>');
+					} else if(authentications.twitchtv.reference != user_handle) {
+						// We're logged in as the wrong user
+						gleamHelperUI.showError('You must be logged into the Twitch account that\'s linked to Gleam.io ' +
+								'(<a href="https://twitch.tv/' + authentications.twitchtv.reference + '/" target="_blank">' +
+								'twitch.tv/' + authentications.twitchtv.reference + '</a>). Please login to the linked account and then reload the page.');
+					} else {
+						// Create the button
+						var button_id = button_base_id + entry.entry_method.id;
+
+						if(entry.entry_method.entry_type == "twitchtv_follow") {
+							// Unfollow button
+							var twitch_handle = entry.entry_method.config1;
+
+							gleamHelperUI.addButton(button_id, entry_element, "Unfollow", function() {
+								gleamHelperUI.removeButton(button_id);
+								deleteTwitchFollow(twitch_handle);
+							});
+						}
+					}
+				}
+
+				/**
+				 *
+				 */
+				function deleteTwitchFollow(twitch_handle) {
+					GM_xmlhttpRequest({
+						url: "https://api.twitch.tv/kraken/users/" + user_handle + "/follows/channels/" + twitch_handle,
+						method: "DELETE",
+						headers: { "Twitch-Api-Token": api_token },
+						onload: function(response) {
+							if(response.status != 204 && response.status != 200) {
+								gleamHelperUI.showError('Failed to unfollow Twitch user: <a href="https://twitch.tv/' + twitch_handle + '" target="_blank">' + twitch_handle + '</a>');
 							}
 						}
 					});
@@ -733,5 +856,69 @@
 		};
 	})();
 
-	gleamHelper.initGleam();
+	/**
+	 * http://stackoverflow.com/a/15724300
+	 */
+	function getCookie(name) {
+		var value = "; " + document.cookie,
+			parts = value.split("; " + name + "=");
+
+		if(parts.length == 2) {
+			return parts.pop().split(";").shift();
+		} else {
+			return null;
+		}
+	}
+
+	/**
+	 * Load an iframe so that we can run code on a different domain
+	 * @param {String} url - True if we're dealing with a retweet, false for a tweet
+	 * @param {Function} data_func - The code that we're going to run inside the iframe
+	 * @param {Function} callback - Runs after data_func returns
+	 */
+	function loadCommandHub(url, data_func, callback) {
+		var command_hub = document.createElement('iframe');
+
+		command_hub.style.display = "none";
+		command_hub.src = url;
+		document.body.appendChild(command_hub);
+
+		window.addEventListener("message", function(event) {
+			if(event.source == command_hub.contentWindow) {
+				if(event.data.status == "ready") {
+					// the iframe has finished loading, tell it what to do
+					GM_setValue("command_hub_func", encodeURI(data_func.toString()));
+					command_hub.contentWindow.postMessage({ status: "run" }, "*");
+				} else if(event.data.status == "finished") {
+					// the iframe has finished its job, send the data to the callback and close the frame
+					document.body.removeChild(command_hub);
+					callback(GM_getValue("command_hub_return"));
+				}
+			}
+		});
+	}
+
+	/**
+	 *
+	 */
+	function initCommandHub() {
+		// wait for our parent to tell us what to do
+		window.addEventListener("message", function(event) {
+			if(event.source == parent && event.origin == "https://gleam.io") {
+				if(event.data.status == "run") {
+					GM_setValue("command_hub_return", eval('(' + decodeURI(GM_getValue("command_hub_func")) + ')')());
+					parent.postMessage({ status: "finished" }, "https://gleam.io");
+				}
+			}
+		});
+
+		// let the parent know the iframe is ready
+		parent.postMessage({status: "ready"}, "https://gleam.io");
+	}
+
+	if(document.location.hostname == "gleam.io") {
+		gleamHelper.initGleam();
+	} else {
+		initCommandHub();
+	}
 })();
