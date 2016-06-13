@@ -1,6 +1,4 @@
 #Gleam.helper
-This is the non-automated version of [Gleam.solver](https://github.com/Citrinate/gleamSolver).
-
 This script adds the following features to Gleam.io giveaways:
   * Steam "Join" and "Leave" buttons next to each Steam group entry
   * Twitter "Undo" buttons after completing a Twitter entry
