@@ -1,10 +1,10 @@
-#Gleam.helper
+# Gleam.helper
 This script adds the following features to Gleam.io giveaways:
   * Steam "Join" and "Leave" buttons next to each Steam group entry
   * Twitter "Undo" buttons after completing a Twitter entry
   * Twitch "Unfollow" button after completing a Twitch entry
 
-##Installation
+## Installation
 1. Install [Tampermonkey](https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo) (for Chrome) or [Greasemonkey](https://addons.mozilla.org/en-US/firefox/addon/greasemonkey/) (for Firefox)
 2. Go [here](https://raw.githubusercontent.com/Citrinate/gleamHelper/master/gleamHelper.user.js)
 3. Click "Install"

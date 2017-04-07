@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamHelper
 // @description Enhances Gleam.io giveaways
 // @author Citrinate
-// @version 1.2.0
+// @version 1.2.1
 // @match https://gleam.io/*
 // @match https://player.twitch.tv/
 // @connect steamcommunity.com
@@ -64,6 +64,7 @@
 					case "twitter_follow":
 					case "twitter_retweet":
 					case "twitter_tweet":
+					case "twitter_hashtags":
 						loadTwitterHandler.getInstance().handleEntry(entry, entry_element);
 						break;
 
@@ -338,7 +339,7 @@
 								gleamHelperUI.removeButton(button_id);
 								deleteTwitterTweet(true, entry.entry_method.config1.match(/\/([0-9]+)/)[1]);
 							});
-						} else if(entry.entry_method.entry_type == "twitter_tweet") {
+						} else if(entry.entry_method.entry_type == "twitter_tweet" || entry.entry_method.entry_type == "twitter_hashtags") {
 							// Delete Tweet button
 							gleamHelperUI.addButton(button_id, entry_element, "Delete Tweet", function() {
 								gleamHelperUI.removeButton(button_id);
@@ -860,7 +861,7 @@
 	 * http://stackoverflow.com/a/15724300
 	 */
 	function getCookie(name) {
-		var value = "; " + document.cookie,
+		var value = "; " + unsafeWindow.cookie,
 			parts = value.split("; " + name + "=");
 
 		if(parts.length == 2) {
@@ -877,11 +878,11 @@
 	 * @param {Function} callback - Runs after data_func returns
 	 */
 	function loadCommandHub(url, data_func, callback) {
-		var command_hub = document.createElement('iframe');
+		var command_hub = unsafeWindow.createElement('iframe');
 
 		command_hub.style.display = "none";
 		command_hub.src = url;
-		document.body.appendChild(command_hub);
+		unsafeWindow.body.appendChild(command_hub);
 
 		window.addEventListener("message", function(event) {
 			if(event.source == command_hub.contentWindow) {
@@ -891,7 +892,7 @@
 					command_hub.contentWindow.postMessage({ status: "run" }, "*");
 				} else if(event.data.status == "finished") {
 					// the iframe has finished its job, send the data to the callback and close the frame
-					document.body.removeChild(command_hub);
+					unsafeWindow.body.removeChild(command_hub);
 					callback(GM_getValue("command_hub_return"));
 				}
 			}
@@ -916,7 +917,7 @@
 		parent.postMessage({status: "ready"}, "https://gleam.io");
 	}
 
-	if(document.location.hostname == "gleam.io") {
+	if(unsafeWindow.location.hostname == "gleam.io") {
 		gleamHelper.initGleam();
 	} else {
 		initCommandHub();
