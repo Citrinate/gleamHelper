@@ -3,7 +3,7 @@
 // @namespace https://github.com/Citrinate/gleamHelper
 // @description Enhances Gleam.io giveaways
 // @author Citrinate
-// @version 1.2.1
+// @version 1.2.2
 // @match https://gleam.io/*
 // @match https://player.twitch.tv/
 // @connect steamcommunity.com
@@ -502,13 +502,22 @@
 				// Get all the user data we'll need to undo twitch entries
 				loadCommandHub(command_hub_url, function() {
 					return {
-						user_handle: getCookie("login"),
-						api_token: getCookie("api_token")
+						user_handle: getCookie("login")
 					};
 				}, function(data) {
 					user_handle = data.user_handle;
-					api_token = data.api_token;
-					ready = true;
+
+					GM_xmlhttpRequest({
+						url: "https://api.twitch.tv/api/viewer/token.json",
+						method: "GET",
+						headers: { "Client-ID": "jzkbprff40iqj646a697cyrvl0zt2m6" },
+						onload: function(response) {
+							api_token = response.responseText.match(/token\":\"(.+?)\"/);
+							api_token = api_token === null ? null : api_token[1];
+
+							ready = true;
+						}
+					});
 				});
 
 				/**
@@ -568,7 +577,7 @@
 					GM_xmlhttpRequest({
 						url: "https://api.twitch.tv/kraken/users/" + user_handle + "/follows/channels/" + twitch_handle,
 						method: "DELETE",
-						headers: { "Twitch-Api-Token": api_token },
+						headers: { "Authorization": "OAuth " + api_token },
 						onload: function(response) {
 							if(response.status != 204 && response.status != 200) {
 								gleamHelperUI.showError('Failed to unfollow Twitch user: <a href="https://twitch.tv/' + twitch_handle + '" target="_blank">' + twitch_handle + '</a>');
@@ -861,7 +870,7 @@
 	 * http://stackoverflow.com/a/15724300
 	 */
 	function getCookie(name) {
-		var value = "; " + unsafeWindow.cookie,
+		var value = "; " + document.cookie,
 			parts = value.split("; " + name + "=");
 
 		if(parts.length == 2) {
@@ -873,16 +882,16 @@
 
 	/**
 	 * Load an iframe so that we can run code on a different domain
-	 * @param {String} url - True if we're dealing with a retweet, false for a tweet
+	 * @param {String} url - The url to be loaded into the iframe
 	 * @param {Function} data_func - The code that we're going to run inside the iframe
 	 * @param {Function} callback - Runs after data_func returns
 	 */
 	function loadCommandHub(url, data_func, callback) {
-		var command_hub = unsafeWindow.createElement('iframe');
+		var command_hub = document.createElement('iframe');
 
 		command_hub.style.display = "none";
 		command_hub.src = url;
-		unsafeWindow.body.appendChild(command_hub);
+		document.body.appendChild(command_hub);
 
 		window.addEventListener("message", function(event) {
 			if(event.source == command_hub.contentWindow) {
@@ -892,7 +901,7 @@
 					command_hub.contentWindow.postMessage({ status: "run" }, "*");
 				} else if(event.data.status == "finished") {
 					// the iframe has finished its job, send the data to the callback and close the frame
-					unsafeWindow.body.removeChild(command_hub);
+					document.body.removeChild(command_hub);
 					callback(GM_getValue("command_hub_return"));
 				}
 			}
@@ -917,7 +926,7 @@
 		parent.postMessage({status: "ready"}, "https://gleam.io");
 	}
 
-	if(unsafeWindow.location.hostname == "gleam.io") {
+	if(document.location.hostname == "gleam.io") {
 		gleamHelper.initGleam();
 	} else {
 		initCommandHub();
