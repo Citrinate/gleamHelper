@@ -1,4 +1,7 @@
-# Gleam.helper
+# This script has moved to a new location
+See [here](https://github.com/Citrinate/gleamHelper/issues/6#issuecomment-307256620) for more information.  Please post any issues you have over at the [Giveaway Helper](https://github.com/Citrinate/giveawayHelper) repository
+
+## Gleam.helper
 This script adds the following features to Gleam.io giveaways:
   * Steam "Join" and "Leave" buttons next to each Steam group entry
   * Twitter "Undo" buttons after completing a Twitter entry
