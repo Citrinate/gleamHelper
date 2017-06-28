@@ -1,5 +1,5 @@
 # This script has moved to a new location
-See [here](https://github.com/Citrinate/gleamHelper/issues/6#issuecomment-307256620) for more information.  Please post any issues you have over at the [Giveaway Helper](https://github.com/Citrinate/giveawayHelper) repository
+See [here](https://github.com/Citrinate/gleamHelper/blob/master/MOVED.md) for more information.  Please post any issues you have over at the [Giveaway Helper](https://github.com/Citrinate/giveawayHelper) repository
 
 ## Gleam.helper
 This script adds the following features to Gleam.io giveaways:
